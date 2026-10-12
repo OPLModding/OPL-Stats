@@ -38,6 +38,8 @@ The deployment target copies the plugin DLL and `xg_model.json` to the configure
 Tracked games use the existing dated game reference naming convention. Network diagnostics are written separately as:
 
 ```text
+{server}_{game-reference}_stats.json
+{server}_{game-reference}_playbyplay.csv
 {server}_{game-reference}_network_performance.json
 ```
 
