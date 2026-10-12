@@ -221,7 +221,7 @@ public partial class Stats
 			Label = "Blue"
 		};
 		float num = snapshot?.PlayByPlayEvents?.FirstOrDefault((PlayByPlayEvent e) => e.EventType == PlayByPlayEventType.GameEnd)?.GameTime ?? (snapshot?.PlayByPlayEvents?.Count > 0 ? snapshot.PlayByPlayEvents.Max((PlayByPlayEvent e) => e.GameTime) : 0f);
-		return new Dictionary<string, object>
+		Dictionary<string, object> payload = new Dictionary<string, object>
 		{
 			{ "players", list },
 			{
@@ -309,6 +309,12 @@ public partial class Stats
 				}
 			}
 		};
+		Dictionary<string, object> networkPerformance = BuildBundledNetworkPerformancePayload();
+		if (networkPerformance != null)
+		{
+			payload["networkPerformance"] = networkPerformance;
+		}
+		return payload;
 	}
 
 	private static PlayerTeam ResolveWinningTeamForSnapshot(FrozenGameExportSnapshot snapshot)
