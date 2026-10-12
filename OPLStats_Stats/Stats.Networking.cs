@@ -107,7 +107,7 @@ public partial class Stats
 				text = "oomtm450_statsRESETALL";
 				text2 = "1";
 			}
-			if (num && !_serverStatsCompatibilityDisabled && !_serverSignatureConfirmed && text != "oomtm450_stats_MOD_VERSION" && text != SERVER_SIGNATURE && text != "oomtm450_statsRESETALL" && text != PREVIOUS_GAME_SNAPSHOT && text != PREVIOUS_GAME_CLEAR && text != NETWORK_PERFORMANCE_GAME)
+			if (num && !_serverStatsCompatibilityDisabled && !_serverSignatureConfirmed && text != "oomtm450_stats_MOD_VERSION" && text != SERVER_SIGNATURE && text != "oomtm450_statsRESETALL" && text != PREVIOUS_GAME_SNAPSHOT && text != PREVIOUS_GAME_CLEAR && text != NETWORK_PERFORMANCE_GAME && text != NETWORK_PERFORMANCE_CONFIG)
 			{
 				return;
 			}
@@ -117,6 +117,12 @@ public partial class Stats
 				if (num)
 				{
 					Event_OnNetworkPerformanceGameReference(new Dictionary<string, object> { { "gameReferenceId", text2 } });
+				}
+				return;
+			case NETWORK_PERFORMANCE_CONFIG:
+				if (num)
+				{
+					Event_OnNetworkPerformanceConfig(new Dictionary<string, object> { { "enabled", text2 } });
 				}
 				return;
 			case NETWORK_PERFORMANCE_REPORT:

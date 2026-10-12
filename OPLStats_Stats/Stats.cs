@@ -2180,6 +2180,7 @@ private static readonly ReadOnlyCollection<string> DATA_NAMES_TO_IGNORE = new Re
 	"oomtm450_stats_SERVER_SIGNATURE",
 	"oomtm450_statsNETWORKPERFORMANCE",
 	"oomtm450_statsNETWORKPERFORMANCEGAME",
+	"oomtm450_statsNETWORKPERFORMANCECONFIG",
 	"oomtm450_statsBOXSCORE_REQUEST",
 	"oomtm450_statsBOXSCORE_LEADERS",
 	"oomtm450_statsBOXSCORE_GAMESTATS",
@@ -2267,6 +2268,8 @@ private static readonly ReadOnlyCollection<string> DATA_NAMES_TO_IGNORE = new Re
 	private const string NETWORK_PERFORMANCE_REPORT = "oomtm450_statsNETWORKPERFORMANCE";
 
 	private const string NETWORK_PERFORMANCE_GAME = "oomtm450_statsNETWORKPERFORMANCEGAME";
+
+	private const string NETWORK_PERFORMANCE_CONFIG = "oomtm450_statsNETWORKPERFORMANCECONFIG";
 
 	private const string STAR = "oomtm450_statsSTAR";
 
@@ -3760,6 +3763,7 @@ private static bool _askForKick = false;
 			Client_ResetHomePlateSogs();
 			Client_ResetTeamStats();
 			ResetClientNetworkPerformanceTracking();
+			_clientNetworkPerformanceEnabled = false;
 			DisposeBoxscorePanel();
 			ApplyScoreboardEnabledState(enable: false, force: true);
 		}

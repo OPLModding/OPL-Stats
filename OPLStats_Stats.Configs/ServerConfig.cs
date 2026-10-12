@@ -36,6 +36,8 @@ public class ServerConfig : IConfig, ISubConfig
 
 	public bool EnableLiveStatsExport { get; set; } = true;
 
+	public bool WriteNetworkPerformanceJson { get; set; } = true;
+
 	public int LiveStatsExportIntervalSeconds { get; set; } = 15;
 
 	public bool TrackZoneBreakdowns { get; set; } = true;

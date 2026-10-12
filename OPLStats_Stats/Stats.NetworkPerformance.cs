@@ -382,6 +382,8 @@ public partial class Stats
 
 	private static string _clientNetworkPerformanceGameReference = "";
 
+	private static bool _clientNetworkPerformanceEnabled;
+
 	private static bool _clientNetworkPerformanceFinalSent;
 
 	private static void AddNetworkPerformanceEventListeners()
@@ -421,7 +423,7 @@ public partial class Stats
 	private static bool IsClientNetworkPerformanceGameActive(out int period)
 	{
 		period = 0;
-		if (ServerFunc.IsDedicatedServer() || string.IsNullOrWhiteSpace(_clientNetworkPerformanceGameReference) || NetworkBehaviourSingleton<GameManager>.Instance == null)
+		if (ServerFunc.IsDedicatedServer() || !_clientNetworkPerformanceEnabled || string.IsNullOrWhiteSpace(_clientNetworkPerformanceGameReference) || NetworkBehaviourSingleton<GameManager>.Instance == null)
 		{
 			return false;
 		}
@@ -514,8 +516,12 @@ public partial class Stats
 
 	private static void Event_OnNetworkPerformanceGameReference(Dictionary<string, object> message)
 	{
-		if (ServerFunc.IsDedicatedServer())
+		if (ServerFunc.IsDedicatedServer() || !_clientNetworkPerformanceEnabled)
 		{
+			if (!_clientNetworkPerformanceEnabled)
+			{
+				ResetClientNetworkPerformanceTracking();
+			}
 			return;
 		}
 		string gameReferenceId = message != null && message.TryGetValue("gameReferenceId", out object value) ? value?.ToString() : "";
@@ -527,6 +533,24 @@ public partial class Stats
 		{
 			ResetClientNetworkPerformanceTracking();
 			_clientNetworkPerformanceGameReference = gameReferenceId;
+		}
+	}
+
+	private static void Event_OnNetworkPerformanceConfig(Dictionary<string, object> message)
+	{
+		if (ServerFunc.IsDedicatedServer())
+		{
+			return;
+		}
+		bool enabled = message != null && message.TryGetValue("enabled", out object value) && string.Equals(value?.ToString(), "1", StringComparison.Ordinal);
+		if (_clientNetworkPerformanceEnabled != enabled)
+		{
+			ResetClientNetworkPerformanceTracking();
+			_clientNetworkPerformanceEnabled = enabled;
+		}
+		if (!enabled)
+		{
+			ResetClientNetworkPerformanceTracking();
 		}
 	}
 
@@ -556,7 +580,7 @@ public partial class Stats
 
 	private static void SendClientNetworkPerformanceReport(NetworkPerformancePeriodReport report)
 	{
-		if (report == null || ServerFunc.IsDedicatedServer() || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsConnectedClient)
+		if (report == null || ServerFunc.IsDedicatedServer() || !_clientNetworkPerformanceEnabled || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsConnectedClient)
 		{
 			return;
 		}
@@ -579,7 +603,12 @@ public partial class Stats
 
 	private static void BroadcastNetworkPerformanceGameReference()
 	{
-		if (!ServerFunc.IsDedicatedServer() || string.IsNullOrWhiteSpace(_currentGameReferenceId) || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
+		if (!ServerFunc.IsDedicatedServer() || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
+		{
+			return;
+		}
+		NetworkCommunication.SendDataToAll(NETWORK_PERFORMANCE_CONFIG, ServerConfig.WriteNetworkPerformanceJson ? "1" : "0", "oomtm450_stats_server", ServerConfig, NetworkDelivery.ReliableSequenced);
+		if (!ServerConfig.WriteNetworkPerformanceJson || string.IsNullOrWhiteSpace(_currentGameReferenceId))
 		{
 			return;
 		}
@@ -588,7 +617,12 @@ public partial class Stats
 
 	private static void SendNetworkPerformanceGameReference(ulong clientId)
 	{
-		if (!ServerFunc.IsDedicatedServer() || string.IsNullOrWhiteSpace(_currentGameReferenceId) || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
+		if (!ServerFunc.IsDedicatedServer() || NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening)
+		{
+			return;
+		}
+		NetworkCommunication.SendData(NETWORK_PERFORMANCE_CONFIG, ServerConfig.WriteNetworkPerformanceJson ? "1" : "0", clientId, "oomtm450_stats_server", ServerConfig, NetworkDelivery.ReliableSequenced);
+		if (!ServerConfig.WriteNetworkPerformanceJson || string.IsNullOrWhiteSpace(_currentGameReferenceId))
 		{
 			return;
 		}
@@ -602,7 +636,7 @@ public partial class Stats
 
 	private static void ReceiveNetworkPerformanceReport(ulong clientId, string payload)
 	{
-		if (!ServerFunc.IsDedicatedServer() || clientId == 0 || string.IsNullOrWhiteSpace(payload) || payload.Length > 60000)
+		if (!ServerFunc.IsDedicatedServer() || !ServerConfig.WriteNetworkPerformanceJson || clientId == 0 || string.IsNullOrWhiteSpace(payload) || payload.Length > 60000)
 		{
 			return;
 		}
@@ -662,7 +696,7 @@ public partial class Stats
 
 	private static void ExportNetworkPerformanceReport(bool final)
 	{
-		if (!ServerFunc.IsDedicatedServer() || _serverNetworkPerformanceReports.Count == 0 || string.IsNullOrWhiteSpace(_currentGameReferenceId))
+		if (!ServerFunc.IsDedicatedServer() || !ServerConfig.WriteNetworkPerformanceJson || _serverNetworkPerformanceReports.Count == 0 || string.IsNullOrWhiteSpace(_currentGameReferenceId))
 		{
 			return;
 		}
