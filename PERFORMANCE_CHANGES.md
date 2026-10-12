@@ -41,10 +41,10 @@ One warmed standalone microbenchmark on this machine produced these results:
 | Read cached analytics 2,000 times | 356 ms; 2.4 MB allocated | 1.8 ms; effectively no allocation |
 | Query attempts 20,000 times over a 2,000-event history with no pending attempts | 166 ms; 2.1 MB allocated | 1.1 ms; effectively no allocation |
 
-These are synthetic .NET measurements, not measured Puck frame-rate gains. The harness disables Harmony initialization only in its generated test copy; it does not simulate Unity gameplay or UI. Instructions are in tests/PerformanceRegression/README.md; raw results and a source diff are in analysis_outputs.
+These are historical synthetic .NET measurements, not measured Puck frame-rate gains. The test harness and raw analysis outputs are not included in this source-only repository.
 
 In-game validation remains necessary for the scoreboard/tooltips, gameplay hooks, actual old/new client connections, and quit/reset event ordering. Exercise a full game with saves, blocks, own goals, role/team swaps, disconnect/rejoin, overtime/shootout, previous-game tabs, live/final exports, and normal mod disable. Test both legacy and updated clients against the updated server.
 
-The package is artifacts/DomaStatsBranch-performance-release.zip. Its manifest records checksums, source files and test results. For installation, close Puck/the server and replace the DLL in the existing mod installation. The currently detected Workshop installation is C:\Program Files (x86)\Steam\steamapps\workshop\content\2994020\3571959574. Keep a single active copy of this mod. The package includes the unchanged bundled xG model and the original DLL under rollback; preserve existing configuration files. Restoring rollback/DomaStatsBranch.dll restores the original installed binary.
+For installation, close Puck/the server and replace the DLL in the existing mod installation. Keep a single active copy of this mod and preserve existing configuration files.
 
-To build without deployment, run `dotnet build DomaStatsBranch.csproj -c Release -p:DeployOnBuild=false`. The normal project's existing automatic-deployment behavior remains available when that property is omitted.
+To build without deployment, run `dotnet build DomaStatsBranch.csproj -c Release -p:DeployOnBuild=false`.

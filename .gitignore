@@ -29,13 +29,8 @@ analysis_*.png
 # Optional local reference archive used by the xG trainer
 reference/archive/
 
-# Project-specific analysis scripts that are not part of the mod
-tools/build_*.py
-tools/export_requested_player_rankings.py
+tools/
+tests/
+
 goalpost_collider_export/
 branch_variants/
-
-# Generated regression harness source and output
-tests/PerformanceRegression/GeneratedStats.cs
-tests/PerformanceRegression/bin/
-tests/PerformanceRegression/obj/

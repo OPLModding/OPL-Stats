@@ -10,8 +10,6 @@ The mod provides live player and team statistics, play-by-play exports, expected
 - `OPLStats_Stats.Configs/` — client, server, and expected-goals configuration.
 - `Codebase/` and `Codebase.Configs/` — shared game integration helpers.
 - `config/doma_stats/xg_model.json` — bundled expected-goals model.
-- `tests/PerformanceRegression/` — performance regression harness.
-- `tools/` — offline model and release tooling.
 
 Generated builds, local game assemblies, decompilation output, and machine-specific analysis are intentionally excluded from version control.
 
