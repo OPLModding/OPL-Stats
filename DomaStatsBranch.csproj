@@ -1,0 +1,119 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>12.0</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ImplicitUsings>false</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <DeployOnBuild Condition="'$(DeployOnBuild)' == ''">false</DeployOnBuild>
+    <AssemblyName>DomaStatsBranch</AssemblyName>
+    <RootNamespace>DomaStatsBranch</RootNamespace>
+    <PackageId>DomaStatsBranch</PackageId>
+    <Authors>Mathieu Cody</Authors>
+    <Product>DomaStatsBranch</Product>
+    <PuckGameDir Condition="'$(PuckGameDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Puck</PuckGameDir>
+    <PuckManagedDir Condition="'$(PuckManagedDir)' == ''">$(PuckGameDir)\Puck_Data\Managed</PuckManagedDir>
+    <PluginDeployDir Condition="'$(PluginDeployDir)' == ''">$(PuckGameDir)\Plugins\DomaStatsBranch</PluginDeployDir>
+    <ExpectedGoalsArchiveDir Condition="'$(ExpectedGoalsArchiveDir)' == ''">$(MSBuildProjectDirectory)\reference\archive</ExpectedGoalsArchiveDir>
+    <ExpectedGoalsModelPath>$(MSBuildProjectDirectory)\config\doma_stats\xg_model.json</ExpectedGoalsModelPath>
+    <ExpectedGoalsTrainingMode>recent_window</ExpectedGoalsTrainingMode>
+    <ExpectedGoalsRecentFitGames>110</ExpectedGoalsRecentFitGames>
+    <ExpectedGoalsRecentCalibrationGames>0</ExpectedGoalsRecentCalibrationGames>
+    <ExpectedGoalsCalibrationMode>intercept_only</ExpectedGoalsCalibrationMode>
+    <ExpectedGoalsRecentCalibrationHalfLifeGames>0</ExpectedGoalsRecentCalibrationHalfLifeGames>
+    <ExpectedGoalsL2>0.001</ExpectedGoalsL2>
+    <ExpectedGoalsTeamGamePenalty>0.3</ExpectedGoalsTeamGamePenalty>
+    <BundledExpectedGoalsModelPath>$(PluginDeployDir)\xg_model.json</BundledExpectedGoalsModelPath>
+    <LegacyBundledStatsModelPath>$(PluginDeployDir)\stats_xg_model.json</LegacyBundledStatsModelPath>
+    <LegacyBundledModelPath>$(PluginDeployDir)\domastatsbranch_xg_model.json</LegacyBundledModelPath>
+    <LegacyRuntimeDomaStatsModelPath>$(PuckGameDir)\config\doma_stats\xg_model.json</LegacyRuntimeDomaStatsModelPath>
+    <LegacyRuntimeConfigStatsModelPath>$(PuckGameDir)\config\stats_xg_model.json</LegacyRuntimeConfigStatsModelPath>
+    <LegacyRuntimeConfigModelPath>$(PuckGameDir)\config\domastatsbranch_xg_model.json</LegacyRuntimeConfigModelPath>
+    <LegacyRuntimeStatsModelPath>$(PuckGameDir)\stats\domastatsbranch_xg_model.json</LegacyRuntimeStatsModelPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Codebase\**\*.cs" />
+    <Compile Include="Codebase.Configs\**\*.cs" />
+    <Compile Include="OPLStats_Stats\**\*.cs" />
+    <Compile Include="OPLStats_Stats.Configs\**\*.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="0Harmony">
+      <HintPath>$(PuckManagedDir)\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(PuckManagedDir)\Newtonsoft.Json.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Puck">
+      <HintPath>$(PuckManagedDir)\Puck.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.Collections">
+      <HintPath>$(PuckManagedDir)\Unity.Collections.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.InputSystem">
+      <HintPath>$(PuckManagedDir)\Unity.InputSystem.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.Netcode.Runtime">
+      <HintPath>$(PuckManagedDir)\Unity.Netcode.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(PuckManagedDir)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.PhysicsModule">
+      <HintPath>$(PuckManagedDir)\UnityEngine.PhysicsModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(PuckManagedDir)\UnityEngine.TextRenderingModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UIElementsModule">
+      <HintPath>$(PuckManagedDir)\UnityEngine.UIElementsModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="ValidateExpectedGoalsModel" BeforeTargets="Build">
+    <Error Condition="!Exists('$(ExpectedGoalsModelPath)')" Text="Expected goals model file not found at $(ExpectedGoalsModelPath). Run the offline trainer separately before building." />
+  </Target>
+
+  <Target Name="TrainExpectedGoalsModel">
+    <MakeDir Directories="$(MSBuildProjectDirectory)\config\doma_stats" />
+    <Exec Command="&quot;python&quot; &quot;$(MSBuildProjectDirectory)\tools\train_xg_model.py&quot; --archive &quot;$(ExpectedGoalsArchiveDir)&quot; --output &quot;$(ExpectedGoalsModelPath)&quot; --training-mode &quot;$(ExpectedGoalsTrainingMode)&quot; --recent-fit-games &quot;$(ExpectedGoalsRecentFitGames)&quot; --recent-calibration-games &quot;$(ExpectedGoalsRecentCalibrationGames)&quot; --team-game-penalty &quot;$(ExpectedGoalsTeamGamePenalty)&quot; --calibration-mode &quot;$(ExpectedGoalsCalibrationMode)&quot; --recent-calibration-half-life-games &quot;$(ExpectedGoalsRecentCalibrationHalfLifeGames)&quot; --l2 &quot;$(ExpectedGoalsL2)&quot;" WorkingDirectory="$(MSBuildProjectDirectory)" />
+    <Message Importance="high" Text="Trained expected goals model to $(ExpectedGoalsModelPath)" />
+  </Target>
+
+  <Target Name="PostBuildMoveDll" AfterTargets="Build" Condition="'$(DeployOnBuild)' == 'true'">
+    <MakeDir Directories="$(PluginDeployDir)" />
+    <ItemGroup>
+      <ExistingPluginBinaries Include="$(PluginDeployDir)\*.dll" />
+      <ExistingPluginSymbols Include="$(PluginDeployDir)\*.pdb" />
+    </ItemGroup>
+    <Delete Files="@(ExistingPluginBinaries)" TreatErrorsAsWarnings="true" />
+    <Delete Files="@(ExistingPluginSymbols)" TreatErrorsAsWarnings="true" />
+    <Delete Files="$(PluginDeployDir)\System*.dll" TreatErrorsAsWarnings="true" />
+    <Delete Files="$(PluginDeployDir)\Microsoft.Bcl.AsyncInterfaces.dll" TreatErrorsAsWarnings="true" />
+    <Delete Files="$(LegacyBundledStatsModelPath)" TreatErrorsAsWarnings="true" />
+    <Delete Files="$(LegacyBundledModelPath)" TreatErrorsAsWarnings="true" />
+    <Delete Files="$(LegacyRuntimeDomaStatsModelPath)" TreatErrorsAsWarnings="true" />
+    <Delete Files="$(LegacyRuntimeConfigStatsModelPath)" TreatErrorsAsWarnings="true" />
+    <Delete Files="$(LegacyRuntimeConfigModelPath)" TreatErrorsAsWarnings="true" />
+    <Delete Files="$(LegacyRuntimeStatsModelPath)" TreatErrorsAsWarnings="true" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(PluginDeployDir)\$(AssemblyName).dll" OverwriteReadOnlyFiles="true" />
+    <Copy SourceFiles="$(ExpectedGoalsModelPath)" DestinationFiles="$(BundledExpectedGoalsModelPath)" OverwriteReadOnlyFiles="true" />
+    <Message Importance="high" Text="Copied $(AssemblyName).dll to $(PluginDeployDir)" />
+    <Message Importance="high" Text="Copied xg_model.json to $(PluginDeployDir)" />
+  </Target>
+</Project>

@@ -1,0 +1,41 @@
+# Build output and local IDE state
+bin/
+obj/
+.vs/
+.idea/
+.agents/
+*.user
+*.suo
+
+# Local build/deployment artifacts
+artifacts/
+analysis_outputs/
+build_*.log
+*.log
+*.dll
+*.pdb
+__pycache__/
+*.pyc
+
+# Decompiled game/workshop sources and temporary investigations
+_decompiled*/
+_tmp*/
+
+# Local data and generated analysis assets
+SteamID's.csv
+analysis_*.json
+analysis_*.png
+
+# Optional local reference archive used by the xG trainer
+reference/archive/
+
+# Project-specific analysis scripts that are not part of the mod
+tools/build_*.py
+tools/export_requested_player_rankings.py
+goalpost_collider_export/
+branch_variants/
+
+# Generated regression harness source and output
+tests/PerformanceRegression/GeneratedStats.cs
+tests/PerformanceRegression/bin/
+tests/PerformanceRegression/obj/
