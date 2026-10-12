@@ -647,6 +647,7 @@ public partial class Stats
 			if (envelope.Final)
 			{
 				ExportNetworkPerformanceReport(final: true);
+				QueueRemoteUploadNetworkPerformanceRefresh();
 			}
 			else
 			{
@@ -713,6 +714,17 @@ public partial class Stats
 			{ "periodCount", periods.Count },
 			{ "playerReportCount", periods.Sum((NetworkPerformanceExportPeriod period) => period.Players.Count) }
 		};
+	}
+
+	// Network performance data bundled into the game stats JSON (and therefore the remote upload). Null when no client has reported yet.
+	private static Dictionary<string, object> BuildBundledNetworkPerformancePayload()
+	{
+		if (!ServerFunc.IsDedicatedServer() || _serverNetworkPerformanceReports.Count == 0 || string.IsNullOrWhiteSpace(_currentGameReferenceId))
+		{
+			return null;
+		}
+		bool final = _serverNetworkPerformanceReports.Values.Any((Dictionary<string, NetworkPerformanceStoredPlayerReport> reports) => reports.Values.Any((NetworkPerformanceStoredPlayerReport stored) => stored.Report != null && stored.Report.Final));
+		return BuildNetworkPerformanceExportPayload(final);
 	}
 
 	private static NetworkPerformanceStoredPlayerReport CloneNetworkPerformanceStoredPlayerReport(NetworkPerformanceStoredPlayerReport source)

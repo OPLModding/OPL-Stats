@@ -114,6 +114,9 @@ public partial class Stats
 				return;
 			}
 			_remoteUploadsInProgress.Add(gameReferenceId);
+			_remoteUploadLastReference = gameReferenceId;
+			_remoteUploadLastStatsJson = statsJson;
+			_remoteUploadLastStem = exportFileStem;
 		}
 		Logging.Log($"Queueing remote stats upload for game reference {gameReferenceId}.", ServerConfig);
 		ThreadPool.QueueUserWorkItem(delegate
@@ -134,6 +137,112 @@ public partial class Stats
 					_remoteUploadsInProgress.Remove(gameReferenceId);
 				}
 				Logging.LogError($"Remote stats upload failed for game reference {gameReferenceId}.\n{arg}", ServerConfig);
+			}
+		});
+	}
+
+	// Clients send their final network performance report after the game-end export, so the first upload can be missing
+	// some or all of it. Re-send the upload (the server updates the existing game) once the late reports have settled.
+	private const int RemoteUploadNetworkRefreshDelaySeconds = 10;
+
+	private static string _remoteUploadLastReference;
+
+	private static string _remoteUploadLastStatsJson;
+
+	private static string _remoteUploadLastStem;
+
+	private static string _remoteUploadPendingNetworkJson;
+
+	private static bool _remoteUploadNetworkRefreshQueued;
+
+	private static void QueueRemoteUploadNetworkPerformanceRefresh()
+	{
+		if (!ServerFunc.IsDedicatedServer() || !ServerConfig.EnableRemoteUpload)
+		{
+			return;
+		}
+		Dictionary<string, object> payload = BuildBundledNetworkPerformancePayload();
+		if (payload == null)
+		{
+			return;
+		}
+		string reference = _currentGameReferenceId;
+		string networkJson = JsonConvert.SerializeObject(payload);
+		lock (_remoteUploadSync)
+		{
+			if (!string.Equals(reference, _remoteUploadLastReference, StringComparison.Ordinal))
+			{
+				return;
+			}
+			_remoteUploadPendingNetworkJson = networkJson;
+			if (_remoteUploadNetworkRefreshQueued)
+			{
+				return;
+			}
+			_remoteUploadNetworkRefreshQueued = true;
+		}
+		ThreadPool.QueueUserWorkItem(delegate
+		{
+			try
+			{
+				Thread.Sleep(RemoteUploadNetworkRefreshDelaySeconds * 1000);
+				for (int wait = 0; wait < 12; wait++)
+				{
+					lock (_remoteUploadSync)
+					{
+						if (!_remoteUploadsInProgress.Contains(reference))
+						{
+							break;
+						}
+					}
+					Thread.Sleep(5000);
+				}
+				string statsJson;
+				string networkJsonToSend;
+				string stem;
+				lock (_remoteUploadSync)
+				{
+					_remoteUploadNetworkRefreshQueued = false;
+					if (!string.Equals(reference, _remoteUploadLastReference, StringComparison.Ordinal) || !_remoteUploadsCompleted.Contains(reference))
+					{
+						return;
+					}
+					statsJson = _remoteUploadLastStatsJson;
+					networkJsonToSend = _remoteUploadPendingNetworkJson;
+					stem = _remoteUploadLastStem;
+				}
+				JObject stats = JObject.Parse(statsJson);
+				JObject network = JObject.Parse(networkJsonToSend);
+				if (stats["networkPerformance"] is JObject existing)
+				{
+					JObject previous = (JObject)existing.DeepClone();
+					previous.Remove("generatedAtUtc");
+					JObject latest = (JObject)network.DeepClone();
+					latest.Remove("generatedAtUtc");
+					if (JToken.DeepEquals(previous, latest))
+					{
+						return;
+					}
+				}
+				stats["networkPerformance"] = network;
+				string merged = stats.ToString(Formatting.None);
+				lock (_remoteUploadSync)
+				{
+					if (string.Equals(reference, _remoteUploadLastReference, StringComparison.Ordinal))
+					{
+						_remoteUploadLastStatsJson = merged;
+					}
+				}
+				Logging.Log($"Re-sending remote stats upload for game reference {reference} with late network performance reports.", ServerConfig);
+				ExecuteRemoteGameUpload(merged, reference, stem);
+			}
+			catch (Exception arg)
+			{
+				lock (_remoteUploadSync)
+				{
+					_remoteUploadNetworkRefreshQueued = false;
+				}
+				Logging.LogError($"Remote network performance refresh failed for game reference {reference}.\n{arg}", ServerConfig);
 			}
 		});
 	}
