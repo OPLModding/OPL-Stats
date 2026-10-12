@@ -15,14 +15,6 @@ namespace OPLStats_Stats;
 
 public partial class Stats
 {
-	private sealed class RemoteUploadSkipException : Exception
-	{
-		public RemoteUploadSkipException(string message)
-			: base(message)
-		{
-		}
-	}
-
 	private sealed class RemoteHttpResponse
 	{
 		public int StatusCode { get; set; }
@@ -32,13 +24,6 @@ public partial class Stats
 		public string Body { get; set; } = "";
 	}
 
-	private sealed class RemoteGameScheduleInfo
-	{
-		public string GameId { get; set; } = "";
-
-		public string RawResponseJson { get; set; } = "";
-	}
-
 	private sealed class RemoteTeamResponse
 	{
 		public string Id { get; set; } = "";
@@ -46,21 +31,15 @@ public partial class Stats
 		public string Name { get; set; } = "";
 	}
 
-	private sealed class RemoteGameScheduleResponse
+	private sealed class RemoteLeagueGameResponse
 	{
-		public string GameId { get; set; } = "";
-
-		public string SeriesId { get; set; } = "";
+		public int? Division { get; set; }
 
 		public int? Week { get; set; }
 
+		public string Round { get; set; } = "";
+
 		public int? GameIndex { get; set; }
-
-		public string Home { get; set; } = "";
-
-		public string Away { get; set; } = "";
-
-		public string Error { get; set; } = "";
 
 		public RemoteTeamResponse HomeTeam { get; set; }
 
@@ -69,7 +48,13 @@ public partial class Stats
 
 	private sealed class RemoteGameUploadResponse
 	{
+		public string UploadId { get; set; } = "";
+
+		public string Category { get; set; } = "";
+
 		public string GameId { get; set; } = "";
+
+		public bool Duplicate { get; set; }
 
 		public int? HomeScore { get; set; }
 
@@ -79,16 +64,26 @@ public partial class Stats
 
 		public int? TotalPlayers { get; set; }
 
+		public string Note { get; set; } = "";
+
+		public string Warning { get; set; } = "";
+
 		public string Error { get; set; } = "";
+
+		public RemoteLeagueGameResponse League { get; set; }
 	}
+
+	// Waits before each retry of a transient failure (network error, HTTP 429 or 5xx). The server dedupes
+	// uploads by server + game reference, so re-sending after an ambiguous failure cannot create a second game.
+	private static readonly int[] _remoteUploadRetryDelaysSeconds = new int[2] { 5, 20 };
+
+	private static readonly string[] _remoteUploadGameTypes = new string[4] { "auto", "league", "pugs", "unassigned" };
 
 	private static readonly object _remoteUploadSync = new object();
 
 	private static readonly HashSet<string> _remoteUploadsInProgress = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
 	private static readonly HashSet<string> _remoteUploadsCompleted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-	private static readonly Dictionary<string, RemoteGameScheduleInfo> _remoteSchedulesByGameReferenceId = new Dictionary<string, RemoteGameScheduleInfo>(StringComparer.OrdinalIgnoreCase);
 
 	private static void TryQueueRemoteGameUpload(string statsJson, string gameReferenceId, string exportFileStem)
 	{
@@ -132,14 +127,6 @@ public partial class Stats
 					_remoteUploadsCompleted.Add(gameReferenceId);
 				}
 			}
-			catch (RemoteUploadSkipException ex)
-			{
-				lock (_remoteUploadSync)
-				{
-					_remoteUploadsInProgress.Remove(gameReferenceId);
-				}
-				Logging.Log(ex.Message, ServerConfig);
-			}
 			catch (Exception arg)
 			{
 				lock (_remoteUploadSync)
@@ -153,15 +140,18 @@ public partial class Stats
 
 	private static void ExecuteRemoteGameUpload(string statsJson, string gameReferenceId, string exportFileStem)
 	{
-		RemoteGameScheduleInfo orFetchRemoteGameScheduleInfo = GetOrFetchRemoteGameScheduleInfo(gameReferenceId);
-		if (ServerConfig.WriteRemoteUploadMetadataFiles && !string.IsNullOrWhiteSpace(orFetchRemoteGameScheduleInfo.RawResponseJson))
+		string gameType = NormalizeRemoteUploadValue(ServerConfig.RemoteUploadGameType).ToLowerInvariant();
+		if (Array.IndexOf(_remoteUploadGameTypes, gameType) < 0)
 		{
-			TryWriteRemoteUploadMetadataFile(exportFileStem + "_nextgame.json", orFetchRemoteGameScheduleInfo.RawResponseJson);
+			Logging.Log($"RemoteUploadGameType '{ServerConfig.RemoteUploadGameType}' is not one of {string.Join(", ", _remoteUploadGameTypes)}. Using 'auto'.", ServerConfig);
+			gameType = "auto";
 		}
-		Uri requestUri = CombineRemoteUploadUri(ServerConfig.RemoteUploadBaseUrl, "/api/games/" + Uri.EscapeDataString(orFetchRemoteGameScheduleInfo.GameId) + "/upload");
-		Logging.Log($"Remote POST {requestUri}", ServerConfig);
-		RemoteHttpResponse remoteHttpResponse = SendRemoteJsonRequest("POST", requestUri, ServerConfig.RemoteUploadAuthToken, statsJson, ServerConfig.RemoteUploadTimeoutSeconds);
-		Logging.Log($"Remote POST {requestUri} -> {remoteHttpResponse.StatusCode}", ServerConfig);
+		Uri requestUri = CombineRemoteUploadUri(ServerConfig.RemoteUploadBaseUrl, "/api/server/games?reference=" + Uri.EscapeDataString(gameReferenceId) + "&type=" + Uri.EscapeDataString(gameType));
+		RemoteHttpResponse remoteHttpResponse = SendRemoteUploadWithRetries(requestUri, statsJson);
+		if (remoteHttpResponse.StatusCode == (int)HttpStatusCode.Unauthorized || remoteHttpResponse.StatusCode == (int)HttpStatusCode.Forbidden)
+		{
+			throw new InvalidOperationException($"Upload was rejected (HTTP {remoteHttpResponse.StatusCode}): {ExtractApiError(remoteHttpResponse.Body)}. Check that RemoteUploadAuthToken is an active server API key from the website's Servers page.");
+		}
 		if (remoteHttpResponse.StatusCode < 200 || remoteHttpResponse.StatusCode >= 300)
 		{
 			throw new InvalidOperationException($"Upload endpoint returned HTTP {remoteHttpResponse.StatusCode}. Body: {TruncateForLog(remoteHttpResponse.Body)}");
@@ -170,100 +160,76 @@ public partial class Stats
 		{
 			TryWriteRemoteUploadMetadataFile(exportFileStem + "_upload_response.json", remoteHttpResponse.Body);
 		}
-		RemoteGameUploadResponse remoteGameUploadResponse = DeserializeRemoteJson<RemoteGameUploadResponse>(remoteHttpResponse.Body);
-		string value = string.IsNullOrWhiteSpace(remoteGameUploadResponse?.GameId) ? orFetchRemoteGameScheduleInfo.GameId : remoteGameUploadResponse.GameId.Trim();
-		StringBuilder stringBuilder = new StringBuilder();
-		stringBuilder.Append($"Remote stats upload succeeded for game {value}");
-		if (remoteGameUploadResponse != null && remoteGameUploadResponse.HomeScore.HasValue && remoteGameUploadResponse.AwayScore.HasValue)
-		{
-			stringBuilder.Append($": {remoteGameUploadResponse.HomeScore.Value}-{remoteGameUploadResponse.AwayScore.Value}");
-		}
-		if (!string.IsNullOrWhiteSpace(remoteGameUploadResponse?.HomeTeamColor))
-		{
-			stringBuilder.Append($", homeTeamColor={remoteGameUploadResponse.HomeTeamColor.Trim()}");
-		}
-		if (remoteGameUploadResponse != null && remoteGameUploadResponse.TotalPlayers.HasValue)
-		{
-			stringBuilder.Append($", totalPlayers={remoteGameUploadResponse.TotalPlayers.Value}");
-		}
-		Logging.Log(stringBuilder.ToString(), ServerConfig);
+		Logging.Log(DescribeRemoteUploadResult(gameReferenceId, DeserializeRemoteJson<RemoteGameUploadResponse>(remoteHttpResponse.Body)), ServerConfig);
 	}
 
-	private static RemoteGameScheduleInfo GetOrFetchRemoteGameScheduleInfo(string gameReferenceId)
+	private static RemoteHttpResponse SendRemoteUploadWithRetries(Uri requestUri, string statsJson)
 	{
-		lock (_remoteUploadSync)
+		for (int attempt = 0; ; attempt++)
 		{
-			if (_remoteSchedulesByGameReferenceId.TryGetValue(gameReferenceId, out var value))
+			bool canRetry = attempt < _remoteUploadRetryDelaysSeconds.Length;
+			string failure;
+			try
 			{
-				return value;
+				Logging.Log($"Remote POST {requestUri}{(attempt > 0 ? $" (retry {attempt})" : "")}", ServerConfig);
+				RemoteHttpResponse response = SendRemoteJsonRequest("POST", requestUri, ServerConfig.RemoteUploadAuthToken, statsJson, ServerConfig.RemoteUploadTimeoutSeconds);
+				Logging.Log($"Remote POST {requestUri} -> {response.StatusCode}", ServerConfig);
+				if (!canRetry || (response.StatusCode != 429 && response.StatusCode < 500))
+				{
+					return response;
+				}
+				failure = $"HTTP {response.StatusCode}";
 			}
-		}
-		RemoteGameScheduleInfo remoteGameScheduleInfo = FetchRemoteGameScheduleInfo();
-		lock (_remoteUploadSync)
-		{
-			if (_remoteSchedulesByGameReferenceId.TryGetValue(gameReferenceId, out var value2))
+			catch (Exception ex) when (canRetry && (ex is IOException || ex is SocketException || ex is TimeoutException || ex is AuthenticationException))
 			{
-				return value2;
+				failure = ex.GetType().Name + ": " + ex.Message;
 			}
-			_remoteSchedulesByGameReferenceId[gameReferenceId] = remoteGameScheduleInfo;
-			return remoteGameScheduleInfo;
+			int delaySeconds = _remoteUploadRetryDelaysSeconds[attempt];
+			Logging.Log($"Remote upload attempt {attempt + 1} failed ({failure}). Retrying in {delaySeconds}s.", ServerConfig);
+			Thread.Sleep(delaySeconds * 1000);
 		}
 	}
 
-	private static RemoteGameScheduleInfo FetchRemoteGameScheduleInfo()
+	private static string DescribeRemoteUploadResult(string gameReferenceId, RemoteGameUploadResponse response)
 	{
-		Uri requestUri = CombineRemoteUploadUri(ServerConfig.RemoteUploadBaseUrl, "/api/getNextGame");
-		Logging.Log($"Remote GET {requestUri}", ServerConfig);
-		RemoteHttpResponse remoteHttpResponse = SendRemoteJsonRequest("GET", requestUri, ServerConfig.RemoteUploadAuthToken, null, ServerConfig.RemoteUploadTimeoutSeconds);
-		Logging.Log($"Remote GET {requestUri} -> {remoteHttpResponse.StatusCode}", ServerConfig);
-		if (remoteHttpResponse.StatusCode == (int)HttpStatusCode.NotFound)
-		{
-			string apiError = ExtractApiError(remoteHttpResponse.Body);
-			throw new RemoteUploadSkipException(string.IsNullOrWhiteSpace(apiError) ? "Remote upload skipped: No unplayed games remaining." : $"Remote upload skipped: {apiError}");
-		}
-		if (remoteHttpResponse.StatusCode < 200 || remoteHttpResponse.StatusCode >= 300)
-		{
-			throw new InvalidOperationException($"getNextGame returned HTTP {remoteHttpResponse.StatusCode}. Body: {TruncateForLog(remoteHttpResponse.Body)}");
-		}
-		RemoteGameScheduleResponse remoteGameScheduleResponse = DeserializeRemoteJson<RemoteGameScheduleResponse>(remoteHttpResponse.Body);
-		if (remoteGameScheduleResponse == null)
-		{
-			throw new InvalidOperationException("getNextGame returned an empty response body.");
-		}
-		string text = remoteGameScheduleResponse.GameId?.Trim() ?? "";
-		if (string.IsNullOrWhiteSpace(text))
-		{
-			throw new InvalidOperationException($"getNextGame did not return a gameId. Body: {TruncateForLog(remoteHttpResponse.Body)}");
-		}
-		RemoteGameScheduleInfo remoteGameScheduleInfo = new RemoteGameScheduleInfo
-		{
-			GameId = text,
-			RawResponseJson = remoteHttpResponse.Body
-		};
-		string text2 = string.IsNullOrWhiteSpace(remoteGameScheduleResponse.Home) ? remoteGameScheduleResponse.HomeTeam?.Id ?? "" : remoteGameScheduleResponse.Home.Trim();
-		string text3 = string.IsNullOrWhiteSpace(remoteGameScheduleResponse.Away) ? remoteGameScheduleResponse.AwayTeam?.Id ?? "" : remoteGameScheduleResponse.Away.Trim();
-		string text4 = remoteGameScheduleResponse.HomeTeam?.Name?.Trim() ?? "";
-		string text5 = remoteGameScheduleResponse.AwayTeam?.Name?.Trim() ?? "";
 		StringBuilder stringBuilder = new StringBuilder();
-		stringBuilder.Append($"Resolved remote game {remoteGameScheduleInfo.GameId}");
-		if (remoteGameScheduleResponse.Week.HasValue)
+		stringBuilder.Append($"Remote stats upload succeeded for {gameReferenceId}");
+		if (response == null)
 		{
-			stringBuilder.Append($", week {remoteGameScheduleResponse.Week.Value}");
+			return stringBuilder.ToString();
 		}
-		if (remoteGameScheduleResponse.GameIndex.HasValue)
+		string category = string.IsNullOrWhiteSpace(response.Category) ? "unknown" : response.Category.Trim();
+		stringBuilder.Append(category == "unassigned" ? " -> held for review on the website" : $" -> {category}");
+		RemoteLeagueGameResponse league = response.League;
+		if (league != null)
 		{
-			stringBuilder.Append($", gameIndex {remoteGameScheduleResponse.GameIndex.Value}");
+			stringBuilder.Append(league.Division.HasValue ? $" D{league.Division.Value}" : "");
+			stringBuilder.Append(!string.IsNullOrWhiteSpace(league.Round) ? $" {league.Round}" : (league.Week.HasValue ? $" week {league.Week.Value}" : ""));
+			stringBuilder.Append(league.GameIndex.HasValue ? $" game {league.GameIndex.Value + 1}" : "");
+			stringBuilder.Append($": {league.HomeTeam?.Name ?? "?"} vs {league.AwayTeam?.Name ?? "?"}");
 		}
-		if (!string.IsNullOrWhiteSpace(text4) || !string.IsNullOrWhiteSpace(text5))
+		if (response.HomeScore.HasValue && response.AwayScore.HasValue)
 		{
-			stringBuilder.Append($": {text4} vs {text5}");
+			stringBuilder.Append($", {response.HomeScore.Value}-{response.AwayScore.Value}");
 		}
-		if (!string.IsNullOrWhiteSpace(text2) || !string.IsNullOrWhiteSpace(text3))
+		if (!string.IsNullOrWhiteSpace(response.HomeTeamColor))
 		{
-			stringBuilder.Append($" (home={text2}, away={text3})");
+			stringBuilder.Append($", homeTeamColor={response.HomeTeamColor.Trim()}");
 		}
-		Logging.Log(stringBuilder.ToString(), ServerConfig);
-		return remoteGameScheduleInfo;
+		if (response.TotalPlayers.HasValue)
+		{
+			stringBuilder.Append($", totalPlayers={response.TotalPlayers.Value}");
+		}
+		if (response.Duplicate)
+		{
+			stringBuilder.Append(" (re-sent; existing game updated)");
+		}
+		string note = string.IsNullOrWhiteSpace(response.Warning) ? response.Note : response.Warning;
+		if (!string.IsNullOrWhiteSpace(note))
+		{
+			stringBuilder.Append($". Note: {note.Trim()}");
+		}
+		return stringBuilder.ToString();
 	}
 
 	private static RemoteHttpResponse SendRemoteJsonRequest(string method, Uri requestUri, string authToken, string requestBody, int timeoutSeconds)
@@ -330,8 +296,8 @@ public partial class Stats
 		stringBuilder.Append("Connection: close\r\n");
 		if (!string.IsNullOrWhiteSpace(authToken))
 		{
-			stringBuilder.Append("X-Auth-Token: ");
-			stringBuilder.Append(authToken.Trim());
+			stringBuilder.Append("Authorization: Bearer ");
+			stringBuilder.Append(NormalizeRemoteUploadValue(authToken));
 			stringBuilder.Append("\r\n");
 		}
 		if (bodyBytes.Length > 0)
