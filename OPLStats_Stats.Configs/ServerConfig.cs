@@ -64,6 +64,9 @@ public class ServerConfig : IConfig, ISubConfig
 
 	public string RemoteUploadAuthToken { get; set; } = "";
 
+	// auto = use the server identity's setting on the website; league / pugs / unassigned override it.
+	public string RemoteUploadGameType { get; set; } = "auto";
+
 	public int RemoteUploadTimeoutSeconds { get; set; } = 15;
 
 	public bool WriteRemoteUploadMetadataFiles { get; set; } = true;
@@ -156,6 +159,10 @@ public class ServerConfig : IConfig, ISubConfig
 		if (RemoteUploadAuthToken == null)
 		{
 			RemoteUploadAuthToken = "";
+		}
+		if (string.IsNullOrWhiteSpace(RemoteUploadGameType))
+		{
+			RemoteUploadGameType = serverConfig.RemoteUploadGameType;
 		}
 	}
 
