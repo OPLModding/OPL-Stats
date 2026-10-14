@@ -113,6 +113,8 @@ public partial class Stats
 		goalie.FaceoffLosses = CountGoalieEvents(snapshot, source.SteamId, (PlayByPlayEvent e) => e.EventType == PlayByPlayEventType.FaceoffOutcome && string.Equals(e.Outcome, "failed", StringComparison.OrdinalIgnoreCase), source.FaceoffLosses);
 		goalie.Xg = SumGoalieExpectedGoals(snapshot, source.SteamId, source.Xg);
 		goalie.PlusMinus = 0;
+		// The player's whole influence share stays on the skater entry so the team pool isn't counted twice.
+		goalie.Influence = 0.0;
 		goalie.IndividualCorsiForPercentage = CalculateIndividualCorsiForPercentage(goalie.IndividualCorsiFor, goalie.OnIceTeamShotAttempts);
 	}
 

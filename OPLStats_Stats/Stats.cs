@@ -2186,6 +2186,8 @@ private static readonly ReadOnlyCollection<string> DATA_NAMES_TO_IGNORE = new Re
 	"oomtm450_statsBOXSCORE_GAMESTATS",
 	"oomtm450_statsBOXSCORE_PLAYERSTATS",
 	"oomtm450_statsBOXSCORE_SHOOTOUT",
+	"oomtm450_statsBOXSCORE_PLAYERDETAIL_REQUEST",
+	"oomtm450_statsBOXSCORE_PLAYERDETAIL",
 	"oomtm450_statsPREVIOUSGAME_SNAPSHOT",
 	"oomtm450_statsPREVIOUSGAME_BOXSCORE_LEADERS",
 	"oomtm450_statsPREVIOUSGAME_BOXSCORE_GAMESTATS",
@@ -2865,6 +2867,7 @@ private static bool _askForKick = false;
 		HashSet<string> hashSet = new HashSet<string>((players ?? MonoBehaviourSingleton<PlayerManager>.Instance?.GetPlayers() ?? new List<Player>()).Where((Player x) => x != null && (bool)x).Select((Player x) => x.SteamId.Value.ToString()));
 		ResetPlayerDoubleArrayDictionary(_possessionTimeByZone, hashSet);
 		ResetPlayerDoubleArrayDictionary(_timeOnIceByZone, hashSet);
+		_playerHeatGrids.Clear();
 		ResetPlayerIntDictionary(_postHits, hashSet);
 		ResetPlayerIntDictionary(_hitsTaken, hashSet);
 		ResetPlayerPositionListDictionary(_postHitShotPositions, hashSet);
@@ -4792,6 +4795,7 @@ private static string MergeGoalieSaveSurface(string existingSurface, string inco
 				{
 					eventZone = DetermineEventZone(item.PlayerBody.transform.position, item.Team);
 					_lastPlayerZone[text] = eventZone;
+					RecordPlayerHeatSample(text, item.PlayerBody.transform.position, num);
 				}
 				else if (_lastPlayerZone.TryGetValue(text, out var value2))
 				{
