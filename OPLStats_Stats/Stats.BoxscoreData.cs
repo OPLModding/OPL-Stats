@@ -398,6 +398,7 @@ public partial class Stats
 		}
 		liveBoxscoreData.RedTeam.ExpectedGoalsAgainst = liveBoxscoreData.BlueTeam.ExpectedGoals;
 		liveBoxscoreData.BlueTeam.ExpectedGoalsAgainst = liveBoxscoreData.RedTeam.ExpectedGoals;
+		ApplyInfluence(liveBoxscoreData);
 		StoreCachedLiveBoxscoreData(liveBoxscoreData);
 		return CloneLiveBoxscoreData(liveBoxscoreData);
 	}
@@ -512,14 +513,14 @@ public partial class Stats
 			AvailableTabs = BuildAvailableTabsForCurrentGameBoxscore(),
 			SkaterColumns = new List<string>
 			{
-				"Team", "Pos", "Name", "G", "SOG", "iCF", "iCF%", "xG", "A", "SP",
+				"Team", "Pos", "Name", "G", "SOG", "iCF", "iCF%", "xG", "A", "SP", "INF",
 				"Pass", "Exit", "Entry", "Hit", "xHit", "TO", "TKA", "Touches", "Poss", "TOI",
 				"DZ Poss", "NZ Poss", "OZ Poss", "DZ TOI", "NZ TOI", "OZ TOI", "Post", "FOW", "FOL", "+/-"
 			},
 			GoalieColumns = new List<string>
 			{
 				"Team", "Pos", "Name", "SA", "SV", "BodySv", "PadSv", "StickSv", "SV%", "GA",
-				"xGA", "GSAx", "Pass", "Poss", "TOI", "DZ Poss", "NZ Poss", "OZ Poss"
+				"xGA", "GSAx", "INF", "Pass", "Poss", "TOI", "DZ Poss", "NZ Poss", "OZ Poss"
 			}
 		};
 		try
@@ -542,6 +543,7 @@ public partial class Stats
 					player.GoalsAllowed.ToString(CultureInfo.InvariantCulture),
 					(liveBoxscoreData.ExpectedGoals.Enabled ? player.Xga.ToString("0.00", CultureInfo.InvariantCulture) : ""),
 					(liveBoxscoreData.ExpectedGoals.Enabled ? FormatSignedDecimal(player.Gsax, "0.00") : ""),
+					player.Influence.ToString("0.0", CultureInfo.InvariantCulture),
 					player.Passes.ToString(CultureInfo.InvariantCulture),
 					FormatTimeAsMinutesSeconds(player.PossessionTimeSeconds),
 					FormatTimeAsMinutesSeconds(player.TimeOnIceSeconds),
@@ -560,6 +562,7 @@ public partial class Stats
 					(liveBoxscoreData.ExpectedGoals.Enabled ? player.Xg.ToString("0.00", CultureInfo.InvariantCulture) : ""),
 					player.Assists.ToString(CultureInfo.InvariantCulture),
 					CalculateCurrentStarPoints(player).ToString("0.0", CultureInfo.InvariantCulture),
+					player.Influence.ToString("0.0", CultureInfo.InvariantCulture),
 					player.Passes.ToString(CultureInfo.InvariantCulture),
 					player.Exits.ToString(CultureInfo.InvariantCulture),
 					player.Entries.ToString(CultureInfo.InvariantCulture),
@@ -583,6 +586,7 @@ public partial class Stats
 				};
 				BoxscorePlayerStatsRowSnapshot item = new BoxscorePlayerStatsRowSnapshot
 				{
+					SteamId = player.SteamId,
 					Team = GetTeamDisplayLabel(player.Team),
 					IsGoalie = player.IsGoalie,
 					Cells = list

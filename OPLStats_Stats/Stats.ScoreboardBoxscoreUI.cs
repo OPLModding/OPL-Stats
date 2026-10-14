@@ -3133,9 +3133,14 @@ public partial class Stats
 		}
 		if (string.Equals(_boxscoreActiveTab, text, StringComparison.OrdinalIgnoreCase))
 		{
+			if (_boxscoreDetailSteamId != null)
+			{
+				CloseBoxscorePlayerDetail();
+			}
 			return;
 		}
 		_boxscoreActiveTab = text;
+		ClearBoxscorePlayerDetailState();
 		UpdateBoxscoreTabButtonStyles();
 		RequestBoxscoreSnapshot(text);
 	}
@@ -3202,6 +3207,7 @@ public partial class Stats
 			}
 			_boxscoreRequestSequence++;
 			_boxscoreShootoutRefreshToken++;
+			ClearBoxscorePlayerDetailState();
 			_boxscoreVisible = false;
 			if (_boxscoreOverlay != null)
 			{
@@ -3228,6 +3234,7 @@ public partial class Stats
 		{
 			UIManager instance = MonoBehaviourSingleton<UIManager>.Instance;
 			_boxscoreRequestSequence++;
+			ClearBoxscorePlayerDetailState();
 			_boxscoreVisible = false;
 			EndBoxscoreResize(saveSize: false);
 			if (_boxscoreOverlay != null)
@@ -3383,7 +3390,7 @@ public partial class Stats
 
 	private static void ReceiveBoxscorePlayerStatsSnapshot(string payload)
 	{
-		if (!_boxscoreVisible || NormalizeBoxscoreTab(_boxscoreActiveTab) != BOXSCORE_TAB_PLAYERSTATS) return;
+		if (!_boxscoreVisible || _boxscoreDetailSteamId != null || NormalizeBoxscoreTab(_boxscoreActiveTab) != BOXSCORE_TAB_PLAYERSTATS) return;
         if (IsBoxscorePayloadAlreadyRendered(payload, BOXSCORE_TAB_PLAYERSTATS)) return;
 		BoxscorePlayerStatsSnapshot boxscorePlayerStatsSnapshot = null;
 		try
@@ -3683,6 +3690,7 @@ public partial class Stats
 			"NZ TOI" => 74f,
 			"OZ TOI" => 74f,
 			"PostHits" => 74f,
+			"INF" => 58f,
 			"FOW" => 54f,
 			"FOL" => 54f,
 			"xG" => 62f,
@@ -3763,7 +3771,12 @@ public partial class Stats
 			for (int j = 0; j < row.Cells.Count && j < (columns?.Count ?? 0); j++)
 			{
 				string text2 = columns[j];
-				visualElement4.Add(CreateBoxscoreTableCell(row.Cells[j], GetBoxscoreColumnWidth(text2), isHeader: false, (j == 2) ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter, new Color(0.88f, 0.9f, 0.95f, 1f), new Color(0f, 0f, 0f, 0f)));
+				VisualElement visualElement5 = CreateBoxscoreTableCell(row.Cells[j], GetBoxscoreColumnWidth(text2), isHeader: false, (j == 2) ? TextAnchor.MiddleLeft : TextAnchor.MiddleCenter, new Color(0.88f, 0.9f, 0.95f, 1f), new Color(0f, 0f, 0f, 0f));
+				if (j == 2)
+				{
+					MakeBoxscorePlayerNameClickable(visualElement5, row.SteamId);
+				}
+				visualElement4.Add(visualElement5);
 			}
 			visualElement.Add(visualElement4);
 			num2++;

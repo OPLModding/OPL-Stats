@@ -316,6 +316,8 @@ public partial class Stats
 
 	internal class BoxscorePlayerStatsRowSnapshot
 	{
+		public string SteamId { get; set; } = "";
+
 		public string Team { get; set; } = "";
 
 		public bool IsGoalie { get; set; }
@@ -421,6 +423,9 @@ public partial class Stats
 		public double Xga { get; set; }
 
 		public double Gsax { get; set; }
+
+		// Share of the team's influence pool (see ApplyInfluence).
+		public double Influence { get; set; }
 
 		public int Points => Goals + Assists;
 	}

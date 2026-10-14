@@ -974,6 +974,7 @@ public partial class Stats
 		{
 			boxscorePlayerStatsSnapshot.SkaterRows.Add(new BoxscorePlayerStatsRowSnapshot
 			{
+				SteamId = item.SteamId,
 				Team = item.Team,
 				IsGoalie = item.IsGoalie,
 				Cells = new List<string>(item.Cells ?? new List<string>())
@@ -983,6 +984,7 @@ public partial class Stats
 		{
 			boxscorePlayerStatsSnapshot.GoalieRows.Add(new BoxscorePlayerStatsRowSnapshot
 			{
+				SteamId = item2.SteamId,
 				Team = item2.Team,
 				IsGoalie = item2.IsGoalie,
 				Cells = new List<string>(item2.Cells ?? new List<string>())

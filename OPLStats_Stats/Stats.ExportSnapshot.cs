@@ -439,7 +439,8 @@ public partial class Stats
 			PadSaves = source.PadSaves,
 			StickSaves = source.StickSaves,
 			Xga = source.Xga,
-			Gsax = source.Gsax
+			Gsax = source.Gsax,
+			Influence = source.Influence
 		};
 	}
 

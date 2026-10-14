@@ -604,6 +604,18 @@ public partial class Stats
 					SendRequestedBoxscoreSnapshot(clientId, text2);
 				}
 				return;
+			case BOXSCORE_PLAYERDETAIL_REQUEST:
+				if (clientId != 0L && text2 != null && text2.Length <= 32)
+				{
+					SendBoxscorePlayerDetail(clientId, text2);
+				}
+				return;
+			case BOXSCORE_PLAYERDETAIL:
+				if (num)
+				{
+					ReceiveBoxscorePlayerDetail(text2);
+				}
+				return;
 			case PREVIOUS_GAME_SNAPSHOT:
 				if (num)
 				{

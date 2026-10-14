@@ -15,6 +15,8 @@
     <PuckGameDir Condition="'$(PuckGameDir)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Puck</PuckGameDir>
     <PuckManagedDir Condition="'$(PuckManagedDir)' == ''">$(PuckGameDir)\Puck_Data\Managed</PuckManagedDir>
     <PluginDeployDir Condition="'$(PluginDeployDir)' == ''">$(PuckGameDir)\Plugins\DomaStatsBranch</PluginDeployDir>
+    <!-- Optional second deploy target (e.g. a dedicated server). Leave empty to skip. -->
+    <ServerPluginDeployDir Condition="'$(ServerPluginDeployDir)' == ''"></ServerPluginDeployDir>
     <ExpectedGoalsModelPath>$(MSBuildProjectDirectory)\config\doma_stats\xg_model.json</ExpectedGoalsModelPath>
     <BundledExpectedGoalsModelPath>$(PluginDeployDir)\xg_model.json</BundledExpectedGoalsModelPath>
     <LegacyBundledStatsModelPath>$(PluginDeployDir)\stats_xg_model.json</LegacyBundledStatsModelPath>
@@ -99,5 +101,12 @@
     <Copy SourceFiles="$(ExpectedGoalsModelPath)" DestinationFiles="$(BundledExpectedGoalsModelPath)" OverwriteReadOnlyFiles="true" />
     <Message Importance="high" Text="Copied $(AssemblyName).dll to $(PluginDeployDir)" />
     <Message Importance="high" Text="Copied xg_model.json to $(PluginDeployDir)" />
+  </Target>
+
+  <Target Name="PostBuildDeployToServer" AfterTargets="PostBuildMoveDll" Condition="'$(DeployOnBuild)' == 'true' And '$(ServerPluginDeployDir)' != ''">
+    <MakeDir Directories="$(ServerPluginDeployDir)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFiles="$(ServerPluginDeployDir)\$(AssemblyName).dll" OverwriteReadOnlyFiles="true" />
+    <Copy SourceFiles="$(ExpectedGoalsModelPath)" DestinationFiles="$(ServerPluginDeployDir)\xg_model.json" OverwriteReadOnlyFiles="true" />
+    <Message Importance="high" Text="Copied $(AssemblyName).dll and xg_model.json to $(ServerPluginDeployDir)" />
   </Target>
 </Project>
