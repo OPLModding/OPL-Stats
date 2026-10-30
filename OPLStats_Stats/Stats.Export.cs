@@ -419,7 +419,8 @@ public partial class Stats
 				{ "O-ZoneTOI", Math.Round(item.OffensiveZoneTimeOnIceSeconds, 1) },
 				{ "postHits", item.PostHits },
 				{ "faceoffWins", item.FaceoffWins },
-				{ "faceoffLosses", item.FaceoffLosses }
+				{ "faceoffLosses", item.FaceoffLosses },
+				{ "influence", Math.Round(item.Influence, 1) }
 			};
 			if (flag)
 			{
